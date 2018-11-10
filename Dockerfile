@@ -1,9 +1,19 @@
-FROM golang:stretch
+FROM golang:stretch as Builder
 
 WORKDIR /app
 
-COPY main.go .
+COPY /src ./src
 
-RUN go get k8s.io/client-go/...
+COPY vendor $HOME/go/src
 
-RUN env GOOS=linux GOARCH=amd64 go build -buildmode=c-shared -o kubego.so main.go
+WORKDIR /app/src/main
+
+RUN env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o kubego main.go
+
+FROM alpine
+
+COPY --from=Builder /app/src/main/kubego /app/kubego
+
+WORKDIR /app
+
+ENTRYPOINT ["./kubego"]
